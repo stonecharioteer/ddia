@@ -1,0 +1,9 @@
+[project]
+name = "day02_data_models"
+version = "0.1.0"
+dependencies = [
+    "mimesis>=18.0.0",
+    "neo4j>=5.28.2",
+    "psycopg2-binary>=2.9.10",
+    "pymongo>=4.14.1",
+]
