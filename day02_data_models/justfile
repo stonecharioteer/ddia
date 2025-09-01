@@ -1,0 +1,14 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+default: 
+  just --choose
+
+# Check all SQL files for syntax issues
+check-sql:
+  uvx sqlfluff lint --dialect postgres resume/postgres/schemas/
+
+
+# Fix all possible issues with SQL files
+fix-sql:
+  uvx sqlfluff fix --dialect postgres resume/postgres/schemas/
+
