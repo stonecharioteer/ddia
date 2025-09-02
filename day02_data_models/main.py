@@ -131,7 +131,7 @@ def load_data(num_users=5000):
                     copy.write_row(edu_row)
             print("Inserted {} education records.".format(len(education_data)))
 
-            with cursor.copy("COPY users_skills (user_id, skill_id) FROM STDIN"):
+            with cursor.copy("COPY users_skills (user_id, skill_id) FROM STDIN") as copy:
                 for us_row in users_skills_data:
                     copy.write_row(us_row)
             print("Inserted {} skills to users.".format(len(users_skills_data)))
@@ -165,7 +165,7 @@ def main():
     create_schemas()
     print("Populating skills.")
     populate_initial_skills()
-    load_data(num_users=500)
+    load_data(num_users=100)
     print("Done!")
 
 
