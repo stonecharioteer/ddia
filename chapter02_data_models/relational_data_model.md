@@ -90,7 +90,7 @@ The practical solution, implemented in the Go script, was to run a series of sim
 This approach returns clean, non-duplicated lists of data that are trivial to assemble into a nested Resume struct in
 Go. This pattern is much more common in real-world applications than a single, complex JOIN.
 
-Running the Go script with `go run main.go`, we get:
+Running the Go script with `go run postgres.go`, we get:
 
 ```json
 {
