@@ -52,6 +52,29 @@ LEFT JOIN skills s ON us.skill_id = s.id
 WHERE u.id = 1;
 ```
 
+Then, running the query in `resume/postgres/query.sql` using `pgcli`:
+
+```bash
+uv run pgcli -d ddia --username user -W -h localhost
+user@localhost:ddia> \i resume/postgres/query.sql
+```
+
+```txt
++---------+----------------+---------------+---------------------------+----------------+--------------+------------------------------------------------+----------+------------+
+| user_id | name           | title         | company                   | position_start | position_end | university                                     | degree   | skill_name |
+|---------+----------------+---------------+---------------------------+----------------+--------------+------------------------------------------------+----------+------------|
+| 1       | Olimpia Haynes | Motor Racing  | Hilton Hotels Corporation | 2010-08-18     | 2020-01-06   | University of California, San Francisco (UCSF) | Bachelor | Go         |
+| 1       | Olimpia Haynes | Motor Racing  | Hilton Hotels Corporation | 2010-08-18     | 2020-01-06   | University of California, San Francisco (UCSF) | Bachelor | DevOps     |
+| 1       | Olimpia Haynes | Motor Racing  | Hilton Hotels Corporation | 2010-08-18     | 2020-01-06   | University of California, San Francisco (UCSF) | Bachelor | Kubernetes |
+| 1       | Olimpia Haynes | Market Trader | Modern Realty             | 2010-11-01     | 2011-09-09   | University of California, San Francisco (UCSF) | Bachelor | Go         |
+| 1       | Olimpia Haynes | Market Trader | Modern Realty             | 2010-11-01     | 2011-09-09   | University of California, San Francisco (UCSF) | Bachelor | DevOps     |
+| 1       | Olimpia Haynes | Market Trader | Modern Realty             | 2010-11-01     | 2011-09-09   | University of California, San Francisco (UCSF) | Bachelor | Kubernetes |
+| 1       | Olimpia Haynes | Resin Caster  | Happy Bear Investment     | 2020-01-21     | 2022-06-21   | University of California, San Francisco (UCSF) | Bachelor | Go         |
+| 1       | Olimpia Haynes | Resin Caster  | Happy Bear Investment     | 2020-01-21     | 2022-06-21   | University of California, San Francisco (UCSF) | Bachelor | DevOps     |
+| 1       | Olimpia Haynes | Resin Caster  | Happy Bear Investment     | 2020-01-21     | 2022-06-21   | University of California, San Francisco (UCSF) | Bachelor | Kubernetes |
++---------+----------------+---------------+---------------------------+----------------+--------------+------------------------------------------------+----------+------------+
+```
+
 This flat, repetitive result is difficult for an application to parse. It is fundamentally mismatched with the nested
 object structure that our code wants to work with.
 
@@ -66,6 +89,52 @@ The practical solution, implemented in the Go script, was to run a series of sim
 
 This approach returns clean, non-duplicated lists of data that are trivial to assemble into a nested Resume struct in
 Go. This pattern is much more common in real-world applications than a single, complex JOIN.
+
+Running the Go script with `go run main.go`, we get:
+
+```json
+{
+  "id": 1,
+  "name": "Olimpia Haynes",
+  "positions": [
+    {
+      "title": "Motor Racing",
+      "company": "Hilton Hotels Corporation",
+      "start_date": "2010-08-18",
+      "end_date": {
+        "String": "2020-01-06",
+        "Valid": true
+      }
+    },
+    {
+      "title": "Market Trader",
+      "company": "Modern Realty",
+      "start_date": "2010-11-01",
+      "end_date": {
+        "String": "2011-09-09",
+        "Valid": true
+      }
+    },
+    {
+      "title": "Resin Caster",
+      "company": "Happy Bear Investment",
+      "start_date": "2020-01-21",
+      "end_date": {
+        "String": "2022-06-21",
+        "Valid": true
+      }
+    }
+  ],
+  "education": [
+    {
+      "university": "University of California, San Francisco (UCSF)",
+      "name": "Bachelor",
+      "major": "Information Technology"
+    }
+  ],
+  "skills": ["Go", "DevOps", "Kubernetes"]
+}
+```
 
 **Note**: I've written this part in Go while the data loading in Python solely to understand how to use both languages
 to interact with postgres.
