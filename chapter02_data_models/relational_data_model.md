@@ -66,3 +66,6 @@ The practical solution, implemented in the Go script, was to run a series of sim
 
 This approach returns clean, non-duplicated lists of data that are trivial to assemble into a nested Resume struct in
 Go. This pattern is much more common in real-world applications than a single, complex JOIN.
+
+**Note**: I've written this part in Go while the data loading in Python solely to understand how to use both languages
+to interact with postgres.
