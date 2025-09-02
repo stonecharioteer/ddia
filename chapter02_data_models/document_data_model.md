@@ -74,3 +74,55 @@ find_one query retrieves the entire document. |
 **Conclusion**: For a self-contained document like a resume, the document model is a much more natural fit. It
 simplifies the application code for both writes and reads and avoids the complexity of JOINs, perfectly illustrating the
 advantages of data locality that are discussed in Chapter 2.
+
+### Caveats
+
+However, there is one more crucial concept that Chapter 2 discusses, which is the big trade-off you have to make when
+designing a document model:
+
+#### Handling Relationships: Embedding vs. Referencing
+
+In our resume exercise, we used embedding. We put the positions and education arrays directly inside the user document.
+This works perfectly for a resume because that data has high locality—you almost always want to see a person's jobs when
+you look at their resume.
+
+But what if the relationship was different?
+
+Imagine our application also needed to show a page for each company, listing its address, industry, and all the users in
+our database who have ever worked there.
+
+- If we embed the company name as a simple string (like we did), and Hilton Hotels changes its name, we would have to
+  find and update every single user document that contains "Hilton Hotels Corporation." This can be slow and complex.
+- This is where referencing comes in. Instead of embedding the company name, we could store a company_id, just like we
+  would in a relational database.
+
+```json
+{
+  "name": "Olimpia Haynes",
+  "positions": [
+    {
+      "title": "Motor Racing",
+      "company_id": "ObjectId('some-unique-id-for-hilton')"
+      // ...
+    }
+  ]
+  // ...
+}
+```
+
+Then, you would have a separate companies collection to store the details for each company. To reconstruct the resume,
+your application would first fetch the user document, and then make a second query to fetch the details for each
+company_id in the positions array.
+
+#### The Big Takeaway: It Depends on Your Queries
+
+Chapter 2 makes it clear that neither approach is always better. The choice between embedding and referencing depends
+entirely on how your application needs to access the data.
+
+- **Choose Embedding (Denormalization)** for one-to-many relationships when you primarily access the "many" side through
+  the "one" side (like the positions in a resume). This is great for read-heavy applications because it avoids JOINs.
+
+- **Choose Referencing (Normalization)** when the relationship is many-to-many, or when the referenced data is large,
+  frequently updated, or accessed on its own.
+
+The document model's greatest strength, though, _is_ locality, and this is the greatest trade-off.
