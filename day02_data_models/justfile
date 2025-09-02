@@ -5,10 +5,10 @@ default:
 
 # Check all SQL files for syntax issues
 check-sql:
-  uvx sqlfluff lint --dialect postgres resume/postgres/schemas/
+  uvx sqlfluff lint --dialect postgres resume/postgres/
 
 
 # Fix all possible issues with SQL files
 fix-sql:
-  uvx sqlfluff fix --dialect postgres resume/postgres/schemas/
+  uvx sqlfluff fix --dialect postgres resume/postgres/
 
