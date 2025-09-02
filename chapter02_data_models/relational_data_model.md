@@ -4,10 +4,29 @@ This exercise demonstrated the core concepts of the relational model by building
 PostgreSQL. The primary goal was to experience the object-relational impedance mismatch firsthand—the friction that
 occurs when mapping nested application objects to flat SQL tables.
 
-## 1. Schema Design: NormalizationThe first step was to
+## Getting Started
 
-design a normalized schema. Instead of putting all resume information into one giant table, we broke it down into
-distinct entities to avoid data duplication.This resulted in five separate tables:
+1. **Start PostgreSQL using Docker Compose:**
+
+   ```bash
+   docker compose up -d postgres
+   ```
+
+2. **Set up the Python environment:**
+
+   ```bash
+   uv sync
+   ```
+
+3. **Run the PostgreSQL data loader:**
+   ```bash
+   uv run postgres.py
+   ```
+
+## 1. Schema Design: Normalization
+
+The first step was to design a normalized schema. Instead of putting all resume information into one giant table, we
+broke it down into distinct entities to avoid data duplication.This resulted in five separate tables:
 
 - `users`: For basic information (one user).
 - `positions`: For job history (many positions per user).

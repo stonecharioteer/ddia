@@ -6,6 +6,23 @@ Objective: To model the same resume data from the relational exercise in a docum
 designed to provide a direct contrast to the relational model and make the concepts of data locality and schema-on-read
 tangible.
 
+## Getting Started
+
+1. **Start MongoDB using Docker Compose:**
+   ```bash
+   docker compose up -d mongodb
+   ```
+
+2. **Set up the Python environment:**
+   ```bash
+   uv sync
+   ```
+
+3. **Run the MongoDB data loader:**
+   ```bash
+   uv run mongodb.py
+   ```
+
 ## Key Concepts Demonstrated
 
 1. The Document Model: Instead of tables and rows, MongoDB stores data in collections of documents. Each document is a
