@@ -61,15 +61,12 @@ tangible.
 
 ### Summary: Relational vs. Document for the Resume Use Case
 
-| Aspect | Relational Model (PostgreSQL) | Document Model (MongoDB) |  
-| Schema | Schema-on-Write: Rigid, defined upfront in schema.sql. | Schema-on-Read: Flexible, defined by the application
-code. |  
-| Data Structure | Normalized: Data is split into 5 tables to reduce duplication. | Denormalized: Data has high
-locality; the entire resume is in one document. |  
-| Writing Data | Requires multiple INSERT statements and careful handling of foreign keys. | Requires a single
-insert_one operation for the entire nested object. |  
-| Reading a Full Resume | Requires multiple queries and application-side JOINs to reassemble the data. | A single
-find_one query retrieves the entire document. |
+| Aspect                | Relational Model (PostgreSQL)                                                | Document Model (MongoDB)                                                    |
+| --------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Schema                | Schema-on-Write: Rigid, defined upfront in schema.sql.                       | Schema-on-Read: Flexible, defined by the application code.                  |
+| Data Structure        | Normalized: Data is split into 5 tables to reduce duplication.               | Denormalized: Data has high locality; the entire resume is in one document. |
+| Writing Data          | Requires multiple INSERT statements and careful handling of foreign keys.    | Requires a single insert_one operation for the entire nested object.        |
+| Reading a Full Resume | Requires multiple queries and application-side JOINs to reassemble the data. | A single find_one query retrieves the entire document.                      |
 
 **Conclusion**: For a self-contained document like a resume, the document model is a much more natural fit. It
 simplifies the application code for both writes and reads and avoids the complexity of JOINs, perfectly illustrating the
