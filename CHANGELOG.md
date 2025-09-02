@@ -2,11 +2,14 @@
 
 ## 2025-09-02
 - **Project Structure**: Renamed from dayXX to chapterXX structure
-- **Chapter 02**: Complete relational database implementation
+- **Chapter 01**: Added comprehensive README with DDIA context and go-wrk testing instructions
+- **Chapter 02**: Complete relational and document database implementations
   - PostgreSQL schemas for resume application
   - Python data generation and population scripts (psycopg v3)
   - Enhanced schema with proper constraints and relationships
-  - Notes on relational data model caveats and queries
+  - MongoDB document model implementation with Python integration
+  - Updated documentation with Docker Compose and uv setup instructions
+  - Comprehensive notes comparing relational vs document data models
 
 ## 2025-09-01
 - **Tooling**: Added justfile for task automation and initial PostgreSQL schemas
