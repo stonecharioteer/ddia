@@ -2,8 +2,8 @@ import os
 import random
 import pprint
 import pathlib
-import psycopg2
-import psycopg2.extras
+import psycopg
+from psycopg.rows import dict_row
 from dotenv import load_dotenv
 
 
@@ -12,46 +12,98 @@ CONN_STRING = "host='{}' dbname='{}' user='{}' password='{}'".format(
 )
 
 
-def load_data():
+def populate_initial_skills():
+    """Loads a list of skills."""
+    skills_list = [
+        "Python",
+        "Go",
+        "Docker",
+        "PostgreSQL",
+        "Kubernetes",
+        "React",
+        "VueJS",
+        "AWS",
+        "GCP",
+        "Azure",
+        "Terraform",
+        "CI/CD",
+        "DevOps",
+        "NextJS",
+        "GenAI",
+        "LangChain/LangGraph",
+        "AI Agents",
+    ]
+    with psycopg.connect(CONN_STRING) as conn:
+        with conn.cursor() as cursor:
+            skills_to_add_tuples = [(skill,) for skill in skills_list]
+            cursor.executemany(
+                "INSERT INTO skills (name) VALUES (%s) ON CONFLICT (name) DO NOTHING;",
+                skills_to_add_tuples,
+            )
+        print("Initial skills populated/verified.")
+
+
+def load_data(num_users=5000):
     """Loads generated data into the database tables"""
     from mimesis import Person, Finance, Datetime
     from mimesis.locales import Locale
 
+    print(f"Generating data for {num_users} users.")
+
     person = Person(Locale.EN)
     business = Finance(Locale.EN)
     datetime = Datetime(Locale.EN)
-    with psycopg2.connect(CONN_STRING) as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
-            user_name = person.full_name()
-            cursor.execute(
-                "INSERT INTO users (name) VALUES (%s) RETURNING id;", (user_name,)
-            )
-            user_id = cursor.fetchone()["id"]
-            print(f"Inserted user '{user_name}` with ID: {user_id}")
-            for _ in range(2):
-                start = datetime.date(start=2010, end=2023)
-                end = datetime.date(start=start.year + 1, end=2024)
-                cursor.execute(
-                    "INSERT INTO positions (user_id, title, company, start_date, end_date) VALUES (%s, %s, %s, %s, %s);",
-                    (user_id, person.occupation(), business.company(), start, end),
-                )
-            print(f"Inserted positions for user_id: {user_id}")
-            for _ in range(1):
+
+    users_data = [(person.full_name(),) for _ in range(num_users)]
+
+    with psycopg.connect(CONN_STRING) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id, name FROM skills;")
+            skill_map = {row[1]: row[0] for row in cursor.fetchall()}
+
+            # COPY is the fastest way to insert, but it doesn't support RETURNING.
+            # So we insert users first and then fetch their IDs.
+            with cursor.copy("COPY users (name) from STDIN") as copy:
+                for user_row in users_data:
+                    copy.write_row(user_row)
+
+            # Fetch the IDs of the users we just inserted.
+            # This assumes IDs are sequential.
+            cursor.execute(f"SELECT id from users ORDER BY id DESC LIMIT {num_users};")
+            user_ids = [row[0] for row in reversed(cursor.fetchall())]
+            print("Inserted {} users.".format(len(user_ids)))
+
+            positions_data = []
+            education_data = []
+            users_skills_data = []
+
+            skill_names = list(skill_map.keys())
+            for user_id in user_ids:
+                # generate positions for this user
+                for _ in range(random.randint(1, 3)):
+                    start = datetime.date(start=2010, end=2020)
+                    end = datetime.date(start=start.year + 1, end=2024)
+                    positions_data.append(
+                        (user_id, person.occupation(), business.company(), start, end)
+                    )
+
+                # generate education for this user
                 start = datetime.date(start=2006, end=2010)
-                end = datetime.date(start=start.year + 4, end=2014)
+                end = datetime.date(start=start.year + 1, end=2024)
                 major = random.choice(
                     [
                         "Computer Science",
-                        "Artificial Intelligence",
-                        "Data Science",
-                        "Statistics",
-                        "Computational Mathematics",
                         "Machine Learning",
+                        "Artificial Intelligence",
+                        "Information Technology",
+                        "Robotics",
+                        "Data Science",
+                        "Mathematics",
+                        "Statistics",
+                        "Statistical Learning",
                     ]
                 )
-
-                cursor.execute(
-                    "INSERT INTO education (user_id, university, degree, major, start_date, end_date) VALUES (%s, %s, %s, %s, %s, %s)",
+                education_data.append(
                     (
                         user_id,
                         person.university(),
@@ -59,60 +111,62 @@ def load_data():
                         major,
                         start,
                         end,
-                    ),
+                    )
                 )
-            print(f"Inserted education for user_id: {user_id}")
+                user_skills = random.sample(skill_names, random.randint(1, 10))
+                for skill_name in user_skills:
+                    users_skills_data.append((user_id, skill_map[skill_name]))
+            print("Data generation complete. Starting batch inserts...")
+            with cursor.copy(
+                "COPY positions (user_id, title, company, start_date, end_date) FROM STDIN"
+            ) as copy:
+                for pos_row in positions_data:
+                    copy.write_row(pos_row)
+            print("Inserted {} positions.".format(len(positions_data)))
 
-            skills_to_add = ["Python", "Go", "Docker", "PostgreSQL", "Kubernetes"]
-            skill_ids = {}
-            for skill_name in skills_to_add:
-                cursor.execute(
-                    "INSERT INTO skills (name) VALUES (%s) ON CONFLICT DO NOTHING;",
-                    (skill_name,),
-                )
+            with cursor.copy(
+                "COPY education (user_id, university, degree, major, start_date, end_date) FROM STDIN"
+            ) as copy:
+                for edu_row in education_data:
+                    copy.write_row(edu_row)
+            print("Inserted {} education records.".format(len(education_data)))
 
-            cursor.execute(
-                "SELECT id, name FROM skills WHERE name = ANY(%s)", (skills_to_add,)
-            )
-            for row in cursor.fetchall():
-                skill_ids[row["name"]] = row["id"]
-
-            print(f"Inserted Skills: {list(skill_ids.keys())}")
-
-            for skill_id in skill_ids.values():
-                cursor.execute(
-                    "INSERT INTO users_skills (user_id, skill_id) VALUES (%s, %s)",
-                    (user_id, skill_id),
-                )
-            print(f"Linked skills for user_id: {user_id}")
+            with cursor.copy("COPY users_skills (user_id, skill_id) FROM STDIN"):
+                for us_row in users_skills_data:
+                    copy.write_row(us_row)
+            print("Inserted {} skills to users.".format(len(users_skills_data)))
 
 
 def create_schemas():
     """Creates schemas in the database using `schemas.sql` file"""
-    with psycopg2.connect(CONN_STRING) as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+    with psycopg.connect(CONN_STRING, row_factory=dict_row) as conn:
+        with conn.cursor() as cursor:
             schema_file_path = (
                 pathlib.Path(os.path.realpath(__file__)).parent
                 / "resume/postgres/schema.sql"
             )
-            assert schema_file_path.exists(), "Schema file doesn't exist"
+            assert schema_file_path.exists(), "Schema file doesn't exist at {}".format(
+                schema_file_path
+            )
             with open(schema_file_path, "r") as f:
                 schema = f.read()
             cursor.execute(schema)
             conn.commit()
-            print("Created tables")
-            cursor.execute("select * from pg_catalog.pg_tables")
-            result = cursor.fetchall()
-            public_tables = [row[1] for row in result if row[0] == "public"]
-            public_tables.sort()
-            pprint.pprint("Tables created: {}".format(public_tables))
+            print("Tables created successfully.")
+            cursor.execute(
+                "select tablename from pg_catalog.pg_tables WHERE schemaname = 'public';"
+            )
+            public_tables = sorted([row["tablename"] for row in cursor.fetchall()])
+            pprint.pprint("Tables created in `public` schema: {}".format(public_tables))
 
 
 def main():
     print("Creating schemas in postgres")
     create_schemas()
-    for _ in range(5000):
-        load_data()
+    print("Populating skills.")
+    populate_initial_skills()
+    load_data(num_users=500)
+    print("Done!")
 
 
 if __name__ == "__main__":

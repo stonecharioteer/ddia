@@ -5,7 +5,7 @@ dependencies = [
     "mimesis>=18.0.0",
     "neo4j>=5.28.2",
     "pgcli>=4.3.0",
-    "psycopg2-binary>=2.9.10",
+    "psycopg[binary]>=3.2.9",
     "pymongo>=4.14.1",
     "python-dotenv>=1.1.1",
 ]
