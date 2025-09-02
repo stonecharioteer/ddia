@@ -28,6 +28,8 @@ data in a relational database and the need for JOINs to reassemble it.
 5.  **Insert Data**: Write the application code to insert the generated data into the corresponding tables.
 6.  **Query Data**: Write a query that `JOIN`s the tables to reconstruct the full resume for a user.
 
+[Solution here](./relational_data_model.md)
+
 ### 2. Resume in MongoDB (Document Model)
 
 **Objective**: Store the same resume from Exercise 1, but this time as a single, nested JSON document. This will
