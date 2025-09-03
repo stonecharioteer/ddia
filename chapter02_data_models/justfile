@@ -12,3 +12,7 @@ check-sql:
 fix-sql:
   uvx sqlfluff fix --dialect postgres resume/postgres/
 
+# Format all sql files
+fmt-sql:
+  uvx sqlfluff format --dialect postgres resume/postgres/
+

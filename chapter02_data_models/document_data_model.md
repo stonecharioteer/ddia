@@ -140,3 +140,106 @@ entirely on how your application needs to access the data.
   frequently updated, or accessed on its own.
 
 The document model's greatest strength, though, _is_ locality, and this is the greatest trade-off.
+
+## Aggregation Pipelines: MongoDB's Answer to SQL GROUP BY
+
+While the document model excels at retrieving complete documents, it also provides powerful aggregation capabilities for data summarization. The `summary()` function in `mongodb.py` demonstrates this with an aggregation pipeline that counts how many users have each skill—equivalent to the SQL summary query in the relational model.
+
+### The Aggregation Pipeline Approach
+
+MongoDB's aggregation framework processes documents through a pipeline of stages, each transforming the data:
+
+```python
+pipeline = [
+    {
+        # Stage 1: Deconstruct the `skills` array
+        # This creates a separate document for each skill a user has
+        "$unwind": "$skills"
+    },
+    {
+        # Stage 2: Group the documents by skill name
+        "$group": {
+            "_id": "$skills",        # Group by the skill name
+            "count": {"$sum": 1}     # Count occurrences
+        }
+    },
+    {
+        # Stage 3: Sort results by skill name
+        "$sort": {"_id": 1}
+    }
+]
+```
+
+### Breaking Down the Pipeline
+
+1. **$unwind Stage**: This "flattens" the skills array. If a user has `["Python", "AWS", "Docker"]`, this stage creates three separate documents, each containing one skill.
+
+2. **$group Stage**: Similar to SQL's `GROUP BY`, this groups all documents by skill name (`"_id": "$skills"`) and counts how many documents are in each group.
+
+3. **$sort Stage**: Orders the results alphabetically by skill name.
+
+### Comparing Approaches
+
+| Aspect | SQL (Relational) | MongoDB Aggregation |
+|--------|------------------|-------------------|
+| **Complexity** | Requires understanding JOINs, junction tables | Requires understanding pipeline stages |
+| **Readability** | Declarative, familiar to SQL users | Functional pipeline, each stage transforms data |
+| **Performance** | Optimized through query planner, indexes on junction table | Pipeline execution, indexes on array elements |
+| **Data Model** | Must work with normalized many-to-many structure | Works directly with denormalized array structure |
+
+### The Key Insight
+
+This comparison illustrates a fundamental trade-off in data modeling:
+
+- **Relational Model**: The normalized structure requires complex JOINs for aggregation, but the rigid schema ensures data consistency and enables powerful query optimization.
+
+- **Document Model**: The denormalized structure simplifies individual document retrieval but requires transformation stages (like `$unwind`) to perform aggregations that would be natural in a relational model.
+
+Both approaches solve the same problem but reflect their underlying data model philosophies—normalization vs. denormalization, schema-on-write vs. schema-on-read.
+
+### Historical Context: From MapReduce to Aggregation Pipelines
+
+MongoDB's aggregation pipeline framework represents an evolution in how document databases handle complex queries. The codebase includes both approaches—`summary()` using modern aggregation pipelines and `summary_mapreduce()` demonstrating the legacy MapReduce paradigm.
+
+#### The MapReduce Approach
+
+The MapReduce implementation requires writing JavaScript functions for two phases:
+
+**Map Phase**: Processes each document individually, emitting key-value pairs:
+```javascript
+function() {
+    if (this.skills) {
+        for (var i = 0; i < this.skills.length; i++) {
+            emit(this.skills[i], 1);  // Emit each skill with count of 1
+        }
+    }
+}
+```
+
+**Reduce Phase**: Aggregates all values for each unique key:
+```javascript
+function(key, values) {
+    return Array.sum(values);  // Sum all 1s to get total count
+}
+```
+
+#### Comparing the Two Approaches
+
+| Aspect | MapReduce | Aggregation Pipeline |
+|--------|-----------|---------------------|
+| **Language** | JavaScript functions executed server-side | Declarative JSON-like stages |
+| **Complexity** | Must understand map-reduce paradigm | Sequential pipeline stages |
+| **Performance** | Single-threaded JavaScript execution | Optimized native operations |
+| **Debugging** | Harder to debug JavaScript execution | Clear stage-by-stage transformation |
+| **Readability** | Verbose, requires JavaScript knowledge | Concise, self-documenting |
+| **Output** | Creates temporary collection | Returns cursor directly |
+
+#### The Evolution
+
+MapReduce was powerful for distributed processing but had significant drawbacks for everyday aggregation tasks:
+- **Verbosity**: Required writing and maintaining JavaScript code
+- **Performance**: JavaScript execution was slower than native operations
+- **Complexity**: The map-reduce mental model was overkill for simple aggregations
+- **Debugging**: Errors in JavaScript functions were hard to trace
+
+Aggregation pipelines addressed these issues by providing a more declarative, SQL-like approach that's easier to write, read, and optimize. The pipeline stages are executed as native operations, offering better performance and a more intuitive developer experience while maintaining the flexibility that document databases are known for.

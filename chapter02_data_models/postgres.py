@@ -165,7 +165,7 @@ def main():
     create_schemas()
     print("Populating skills.")
     populate_initial_skills()
-    load_data(num_users=100)
+    load_data(num_users=5000)
     print("Done!")
 
 

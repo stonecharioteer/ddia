@@ -157,3 +157,31 @@ Running the Go script with `go run postgres.go`, we get:
 
 **Note**: I've written this part in Go while the data loading in Python solely to understand how to use both languages
 to interact with postgres.
+
+## 4. Skill Summary Query: Aggregating Data Across Tables
+
+A common reporting need is to summarize data across the entire dataset—for example, counting how many users have each skill. This demonstrates SQL's powerful aggregation capabilities but also highlights the complexity of working with many-to-many relationships.
+
+The summary query in `resume/postgres/summary.sql` counts how many users possess each skill:
+
+```sql
+SELECT
+    s.name AS skill,
+    COUNT(u.id) AS count_skills
+FROM users AS u
+LEFT JOIN
+    users_skills AS us
+    ON u.id = us.user_id
+LEFT JOIN
+    skills AS s
+    ON us.skill_id = s.id
+GROUP BY s.name ORDER BY s.name ASC;
+```
+
+This query requires:
+- **Two JOINs**: One to connect users to the junction table, another to get skill names
+- **GROUP BY**: To group results by skill name
+- **COUNT()**: To aggregate the number of users per skill
+- **LEFT JOINs**: To include skills that might have zero users (though this particular data setup won't have any)
+
+The result shows each skill and how many users possess it, sorted alphabetically. This type of aggregation query is where SQL really shines—its declarative nature makes complex data summarization straightforward once you understand the JOIN patterns.
