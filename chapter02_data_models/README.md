@@ -55,7 +55,7 @@ graph database handle a complex relationship query. This exercise will demonstra
 
 **The Challenge**: Find "friends of friends" for a user—that is, the users followed by the people they follow.
 
-## [Solution here](./graph_data_model.md)
+[Solution here](./graph_data_model.md)
 
 #### Task 1: The Relational Approach (The Pain Point)
 
