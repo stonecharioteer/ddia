@@ -1,4 +1,5 @@
 """MongoDB schema creator"""
+
 import random
 import pprint
 from pymongo import MongoClient
@@ -8,17 +9,20 @@ from mimesis.locales import Locale
 
 
 def get_major():
-    return random.choice([
-        "Artificial Intelligence",
-        "Computer Science",
-        "Data Science",
-        "Information Technology",
-        "Machine Learning",
-        "Mathematics",
-        "Robotics",
-        "Statistical Learning",
-        "Statistics",
-    ])
+    return random.choice(
+        [
+            "Artificial Intelligence",
+            "Computer Science",
+            "Data Science",
+            "Information Technology",
+            "Machine Learning",
+            "Mathematics",
+            "Robotics",
+            "Statistical Learning",
+            "Statistics",
+        ]
+    )
+
 
 def get_random_skills():
     skills_list = [
@@ -42,6 +46,7 @@ def get_random_skills():
     ]
     return random.sample(skills_list, random.randint(3, 7))
 
+
 def load_one_resume():
     """Generates one fake resume and inserts it into MongoDB"""
     person = Person(Locale.EN)
@@ -52,29 +57,33 @@ def load_one_resume():
         "name": person.full_name(),
         "positions": [],
         "education": [],
-        "skills": []
+        "skills": [],
     }
 
     for _ in range(random.randint(1, 3)):
         start = datetime.date(start=2010, end=2020)
-        end = datetime.date(start=start.year+1, end=2024)
+        end = datetime.date(start=start.year + 1, end=2024)
 
-        resume_doc["positions"].append({
-            "title": person.occupation(),
-            "company": business.company(),
-            "start_date": start.isoformat(),
-            "end_date": end.isoformat()
-        })
+        resume_doc["positions"].append(
+            {
+                "title": person.occupation(),
+                "company": business.company(),
+                "start_date": start.isoformat(),
+                "end_date": end.isoformat(),
+            }
+        )
 
     start = datetime.date(start=2006, end=2010)
     end = datetime.date(start=start.year + 1, end=2014)
-    resume_doc["education"].append({
-        "university": person.university(),
-        "degree": person.academic_degree(),
-        "major": get_major(),
-        "start_date": start.isoformat(),
-        "end_date": end.isoformat()
-    })
+    resume_doc["education"].append(
+        {
+            "university": person.university(),
+            "degree": person.academic_degree(),
+            "major": get_major(),
+            "start_date": start.isoformat(),
+            "end_date": end.isoformat(),
+        }
+    )
 
     resume_doc["skills"] = get_random_skills()
 
@@ -94,7 +103,7 @@ def filter_resumes():
     print("=" * 50)
     print("This demonstrates different MongoDB query patterns:")
     print("- Simple field matching")
-    print("- Array operators ($all, $in)")  
+    print("- Array operators ($all, $in)")
     print("- Nested document queries")
     print("- Element matching ($elemMatch)")
     print()
@@ -121,24 +130,22 @@ def filter_resumes():
             "description": "Resumes with skills containing Python OR AWS, AND a PhD in Statistics",
             "query": {
                 "skills": {"$in": ["Python", "AWS"]},
-                "education": {
-                    "$elemMatch": {"degree": "PhD", "major": "Statistics"}
-                },
+                "education": {"$elemMatch": {"degree": "PhD", "major": "Statistics"}},
             },
         },
     ]
     with MongoClient("mongodb://localhost:27017") as client:
         db = client["ddia"]
         resumes_collection = db["resumes"]
-        
+
         total_resumes = resumes_collection.count_documents({})
         print(f"📊 Total resumes in database: {total_resumes:_}")
         print()
-        
+
         for i, q in enumerate(QUERIES):
             description = q["description"]
             query = q["query"]
-            print(f"🔎 Query {i+1}: {description}")
+            print(f"🔎 Query {i + 1}: {description}")
             print("─" * 40)
             count = resumes_collection.count_documents(query)
             percentage = (count / total_resumes * 100) if total_resumes > 0 else 0
@@ -157,15 +164,15 @@ def summary():
     print("- $group: Groups documents and performs aggregations")
     print("- $sort: Orders the results")
     print()
-    
+
     with MongoClient("mongodb://localhost:27017") as client:
         db = client["ddia"]
         resumes_collection = db["resumes"]
-        
+
         total_resumes = resumes_collection.count_documents({})
         print(f"📋 Total resumes to analyze: {total_resumes:_}")
         print()
-        
+
         # This is the aggregation pipeline, defined as a list of stages.
         pipeline = [
             {
@@ -178,32 +185,32 @@ def summary():
                 # the `_id` field in the group stage specifies the key to group by.
                 "$group": {
                     "_id": "$skills",
-
-                    "count": { # For each document in a group, add one to the count.
+                    "count": {  # For each document in a group, add one to the count.
                         "$sum": 1
-                    }
+                    },
                 }
             },
             {
                 # Stage 3 (Optional): Sort the results by the skill name
                 "$sort": {"_id": 1}
-            }
+            },
         ]
         print("🔧 Aggregation Pipeline:")
         pprint.pprint(pipeline)
         print()
-        
+
         print("⚡ Executing pipeline...")
         results = list(resumes_collection.aggregate(pipeline))
-        
+
         print(f"📈 Results: Found {len(results):_} unique skills")
         print("─" * 40)
         for i, doc in enumerate(results, 1):
-            skill = doc['_id']
-            count = doc['count']
+            skill = doc["_id"]
+            count = doc["count"]
             percentage = (count / total_resumes * 100) if total_resumes > 0 else 0
             print(f"{i:2}. {skill:20} → {count:_} users ({percentage:4.1f}%)")
         print()
+
 
 def summary_mapreduce():
     """
@@ -218,7 +225,7 @@ def summary_mapreduce():
     print("- Reduce: JavaScript function that combines map outputs")
     print("- Output: Stored in a temporary collection")
     print()
-    
+
     with MongoClient("mongodb://localhost:27017") as client:
         db = client["ddia"]
         resumes_collection = db["resumes"]
@@ -255,15 +262,15 @@ def summary_mapreduce():
         total_resumes = resumes_collection.count_documents({})
         print(f"📋 Total resumes to analyze: {total_resumes:_}")
         print()
-        
+
         print("🔧 Map Function (JavaScript):")
         print(mapper.code[:200] + "..." if len(mapper.code) > 200 else mapper.code)
         print()
-        
+
         print("🔧 Reduce Function (JavaScript):")
-        print(reducer.code[:150] + "..." if len(reducer.code) > 150 else reducer.code)  
+        print(reducer.code[:150] + "..." if len(reducer.code) > 150 else reducer.code)
         print()
-        
+
         print("⚡ Executing MapReduce job...")
         print("─" * 30)
 
@@ -271,61 +278,65 @@ def summary_mapreduce():
         # Note: MapReduce was deprecated in MongoDB 4.4 and removed in PyMongo 4.x
         # Using the database command directly to demonstrate the legacy approach
         try:
-            result = db.command("mapReduce", "resumes", 
-                              map=mapper, 
-                              reduce=reducer, 
-                              out="skill_counts")
-            
+            result = db.command(
+                "mapReduce", "resumes", map=mapper, reduce=reducer, out="skill_counts"
+            )
+
             print("✅ MapReduce job completed successfully")
             print()
-            
+
             # Query the output collection to see the final results
             skill_counts_collection = db["skill_counts"]
             results = list(skill_counts_collection.find().sort("_id"))
-            
+
             print(f"📈 Results: Found {len(results):_} unique skills")
             print("─" * 40)
             for i, doc in enumerate(results, 1):
-                skill = doc['_id']
-                count = int(doc['value'])
+                skill = doc["_id"]
+                count = int(doc["value"])
                 percentage = (count / total_resumes * 100) if total_resumes > 0 else 0
                 print(f"{i:2}. {skill:20} → {count:_} users ({percentage:4.1f}%)")
             print()
-                
+
         except Exception as e:
             print(f"❌ MapReduce failed (likely deprecated): {e}")
-            print("💡 This demonstrates why MapReduce was replaced by aggregation pipelines!")
+            print(
+                "💡 This demonstrates why MapReduce was replaced by aggregation pipelines!"
+            )
             print("   Modern MongoDB versions recommend using aggregation instead.")
+
 
 def purge_data():
     """Purge all data from MongoDB collections."""
     print("🗑️  MongoDB Data Purge")
     print("=" * 30)
-    
+
     with MongoClient("mongodb://localhost:27017") as client:
         db = client["ddia"]
-        
+
         # Get collection names
         collections = db.list_collection_names()
-        
+
         if not collections:
             print("📝 No collections found in database 'ddia'")
             return
-        
+
         print(f"📊 Found {len(collections):_} collections: {', '.join(collections)}")
-        
+
         total_deleted = 0
         for collection_name in collections:
             collection = db[collection_name]
             count_before = collection.count_documents({})
-            
+
             if count_before > 0:
                 result = collection.delete_many({})
-                print(f"🗑️  Deleted {result.deleted_count:_} documents from '{collection_name}'")
+                print(
+                    f"🗑️  Deleted {result.deleted_count:_} documents from '{collection_name}'"
+                )
                 total_deleted += result.deleted_count
             else:
                 print(f"📝 Collection '{collection_name}' was already empty")
-        
+
         print(f"✅ Purge completed. Total documents deleted: {total_deleted:_}")
 
 
@@ -341,4 +352,3 @@ if __name__ == "__main__":
     print("Generating the summary using mapreduce")
     summary_mapreduce()
     print("Done")
-

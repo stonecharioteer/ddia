@@ -131,7 +131,9 @@ def load_data(num_users=5000):
                     copy.write_row(edu_row)
             print("Inserted {} education records.".format(len(education_data)))
 
-            with cursor.copy("COPY users_skills (user_id, skill_id) FROM STDIN") as copy:
+            with cursor.copy(
+                "COPY users_skills (user_id, skill_id) FROM STDIN"
+            ) as copy:
                 for us_row in users_skills_data:
                     copy.write_row(us_row)
             print("Inserted {} skills to users.".format(len(users_skills_data)))
@@ -139,40 +141,52 @@ def load_data(num_users=5000):
 
 def run_sql_file(filename, **params):
     """Executes a SQL file from the sql/ directory with optional parameters"""
-    sql_file_path = (
-        pathlib.Path(os.path.realpath(__file__)).parent / "sql" / filename
-    )
+    sql_file_path = pathlib.Path(os.path.realpath(__file__)).parent / "sql" / filename
     assert sql_file_path.exists(), f"SQL file doesn't exist at {sql_file_path}"
-    
+
     with psycopg.connect(CONN_STRING, row_factory=dict_row) as conn:
         with conn.cursor() as cursor:
             with open(sql_file_path, "r") as f:
                 sql_content = f.read()
-            
+
             # For followers.sql, replace hardcoded user_id=1 with parameter
-            if filename == 'followers.sql' and 'user_id' in params:
-                user_id = params['user_id']
-                sql_content = sql_content.replace('follower_id = 1', f'follower_id = {user_id}')
-                sql_content = sql_content.replace('user_id != 1', f'user_id != {user_id}')
-                sql_content = sql_content.replace('follower_id = 1', f'follower_id = {user_id}')
-            
+            if filename == "followers.sql" and "user_id" in params:
+                user_id = params["user_id"]
+                sql_content = sql_content.replace(
+                    "follower_id = 1", f"follower_id = {user_id}"
+                )
+                sql_content = sql_content.replace(
+                    "user_id != 1", f"user_id != {user_id}"
+                )
+                sql_content = sql_content.replace(
+                    "follower_id = 1", f"follower_id = {user_id}"
+                )
+
             # For follower_with_ge_x_followers.sql, replace hardcoded threshold
-            if filename == 'follower_with_ge_x_followers.sql' and 'min_followers' in params:
-                min_followers = params['min_followers']
-                sql_content = sql_content.replace('fc.num_followers >= 12', f'fc.num_followers >= {min_followers}')
-                sql_content = sql_content.replace('COUNT(f1.follower_id) > 12', f'COUNT(f1.follower_id) > {min_followers}')
-            
+            if (
+                filename == "follower_with_ge_x_followers.sql"
+                and "min_followers" in params
+            ):
+                min_followers = params["min_followers"]
+                sql_content = sql_content.replace(
+                    "fc.num_followers >= 12", f"fc.num_followers >= {min_followers}"
+                )
+                sql_content = sql_content.replace(
+                    "COUNT(f1.follower_id) > 12",
+                    f"COUNT(f1.follower_id) > {min_followers}",
+                )
+
             print(f"Executing {filename}")
             if params:
                 print(f"Parameters: {params}")
-            
+
             print(f"SQL query being executed:")
             print("-" * 30)
             print(sql_content[:200] + "..." if len(sql_content) > 200 else sql_content)
             print("-" * 30)
-            
+
             cursor.execute(sql_content)
-            
+
             # Always try to fetch results for any query
             try:
                 results = cursor.fetchall()
@@ -186,7 +200,9 @@ def run_sql_file(filename, **params):
                 else:
                     print(f"No results returned from {filename}")
             except Exception as e:
-                print(f"No results to fetch (this is normal for non-SELECT queries): {e}")
+                print(
+                    f"No results to fetch (this is normal for non-SELECT queries): {e}"
+                )
                 conn.commit()
                 print(f"SQL file {filename} executed successfully")
 
@@ -231,7 +247,9 @@ def add_followers():
                 users_to_follow = random.sample(potential_users, num_to_follow)
                 for user_id in users_to_follow:
                     follower_data.append((user_id, follower_id))
-            with cursor.copy("COPY followers (user_id, follower_id) FROM STDIN") as copy:
+            with cursor.copy(
+                "COPY followers (user_id, follower_id) FROM STDIN"
+            ) as copy:
                 for row in follower_data:
                     copy.write_row(row)
             print(f"Inserted {len(follower_data)} follower relationships")
