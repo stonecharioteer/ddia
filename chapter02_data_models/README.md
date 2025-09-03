@@ -47,18 +47,58 @@ demonstrate the locality of data in a document model and how it can simplify app
 
 [Solution here](./document_data_model.md)
 
-### 3. Social Network in Neo4j (Graph Model)
+### 3: The Graph Model vs. The Relational Model
 
-**Objective**: Model a simple "followers" social graph and run queries that are very difficult or inefficient in
-relational or document models.
+**Objective**: To understand the strengths of the graph data model by directly comparing how a relational database and a
+graph database handle a complex relationship query. This exercise will demonstrate why graph databases excel at
+"many-to-many" and path-finding problems, as discussed in Chapter 2.
 
-**Tasks**:
+**The Challenge**: Find "friends of friends" for a user—that is, the users followed by the people they follow.
 
-1. **Design the Graph**: Model users as `(:User)` nodes and the relationships between them as `[:FOLLOWS]` edges.
-2. **Connect and Create**: Write a script (in Python or Go) to connect to Neo4j.
-3. **Generate and Insert Data**: Create a few sample users and establish some `FOLLOWS` relationships between them.
-4. **Write Cypher Queries**:
-   - Find all the people a specific user follows.
-   - Find all the followers of a specific user.
-   - **The classic graph problem**: Find all "friends of friends" for a user (i.e., the users followed by the people
-     they follow), excluding the user themselves and people they already follow.
+---
+
+#### Task 1: The Relational Approach (The Pain Point)
+
+Before touching Neo4j, we first need to establish a baseline by solving this problem with the tools we already have.
+
+1.  **Create the Relationship**: In your PostgreSQL database, add a new junction table called `followers` with two
+    columns: `user_id` and `follower_id`.
+2.  **Populate Data**: Write a simple Python script to populate this table with some sample data. Make sure some users
+    have followers in common to make the query interesting.
+3.  **Write the SQL Query**: Write a **single SQL query** that, for a given `user_id`, finds all of their "friends of
+    friends."
+    - **Hint**: This is a notoriously difficult query in SQL. It will likely require multiple `JOIN`s on the same table
+      (a "self-join") and careful filtering with `WHERE` clauses to exclude the original user and people they already
+      follow.
+    - **Goal**: Feel the complexity and awkwardness of expressing this path-finding logic in SQL.
+
+---
+
+#### Task 2: The Graph Approach (The Solution)
+
+Now, let's solve the exact same problem in a database that is designed for it.
+
+1.  **Design the Graph**: Model users as nodes with the label `(:User {name: '...'})` and the relationships between them
+    as directed edges with the label `[:FOLLOWS]`.
+2.  **Connect and Create**: Write a script (in Python or Go) to connect to your Neo4j instance. You'll need the `neo4j`
+    Python driver: `pip install neo4j`.
+3.  **Generate and Insert Data**: In your script, create a few sample `User` nodes and establish some `:FOLLOWS`
+    relationships between them to match the data you created in PostgreSQL.
+4.  **Write Cypher Queries**: Write simple, readable queries in Cypher to answer the following questions:
+    - Find all the people a specific user follows.
+    - Find all the followers of a specific user.
+    - **The "Friends of Friends" Query**: Find all "friends of friends" for a user, excluding the user themselves and
+      people they already follow.
+
+---
+
+#### Task 3: Compare and Reflect
+
+Once you have both solutions working, compare the SQL query from Task 1 with the Cypher query from Task 2. Reflect on
+the following questions:
+
+- How much longer and more complex was the SQL query?
+- How well did the Cypher query `MATCH (u:User)-[:FOLLOWS]->(friend)-[:FOLLOWS]->(fof) ...` map to the English-language
+  description of the problem?
+- Based on this experience, for what kinds of applications or features would a graph database be a more natural fit than
+  a relational one?

@@ -2,6 +2,7 @@ DROP TABLE IF EXISTS users_skills;
 DROP TABLE IF EXISTS positions;
 DROP TABLE IF EXISTS education;
 DROP TABLE IF EXISTS skills;
+DROP TABLE IF EXISTS followers;
 DROP TABLE IF EXISTS users;
 
 CREATE TABLE users (
@@ -34,3 +35,9 @@ CREATE TABLE users_skills (
     skill_id integer REFERENCES skills (id),
     PRIMARY KEY (user_id, skill_id)
 );
+
+CREATE TABLE followers (
+    user_id integer REFERENCES users (id),
+    follower_id integer REFERENCES users (id),
+    PRIMARY KEY (user_id, follower_id)
+)

@@ -160,12 +160,37 @@ def create_schemas():
             pprint.pprint("Tables created in `public` schema: {}".format(public_tables))
 
 
+def add_followers():
+    """Add followers"""
+    print("Creating follower relationships")
+    with psycopg.connect(CONN_STRING) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id FROM USERS;")
+            user_ids = [row[0] for row in cursor.fetchall()]
+            if len(user_ids) < 2:
+                raise Exception("Not enough users to create follower relationships")
+
+            follower_data = []
+            for follower_id in user_ids:
+                num_to_follow = random.randint(5, 20)
+                potential_users = [uid for uid in user_ids if uid != follower_id]
+                num_to_follow = min(num_to_follow, len(potential_users))
+                users_to_follow = random.sample(potential_users, num_to_follow)
+                for user_id in users_to_follow:
+                    follower_data.append((user_id, follower_id))
+            with cursor.copy("COPY followers (user_id, follower_id) FROM STDIN") as copy:
+                for row in follower_data:
+                    copy.write_row(row)
+            print(f"Inserted {len(follower_data)} follower relationships")
+
+
 def main():
     print("Creating schemas in postgres")
     create_schemas()
     print("Populating skills.")
     populate_initial_skills()
     load_data(num_users=5000)
+    add_followers()
     print("Done!")
 
 
