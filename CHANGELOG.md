@@ -1,5 +1,11 @@
 # Designing Data-Intensive Applications - Learning Journey
 
+## 2025-09-03 (Evening)
+- **Chapter 02**: Completed Neo4j exercise to compare graph vs. relational models.
+  - Added a Python script to create a social graph in Neo4j.
+  - Updated the chapter's README with detailed instructions for the graph model exercise.
+- **Docs**: Updated the main README to include a "Chapters" section with links to each chapter's README.
+
 ## 2025-09-03
 - **Chapter 02**: Enhanced database exercises with summarization and aggregation
   - Updated PostgreSQL and MongoDB exercises to demonstrate data summarization techniques

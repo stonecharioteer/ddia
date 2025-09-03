@@ -14,30 +14,18 @@ exercises bridge the gap between theory and practice by:
 - **Understanding performance characteristics** through measurement and testing
 - **Comparing different approaches** with concrete implementations
 
-## What's Covered
+## Chapters
 
-### Chapter 01: Performance and Percentiles
+- **[Chapter 01: Performance and Percentiles](./chapter01_perf_test/README.md)**: Learn why averages lie and percentiles matter through practical load testing with FastAPI and statistical analysis.
 
-Learn why averages lie and percentiles matter through practical load testing with FastAPI and statistical analysis.
-
-**Key Concepts**: Tail latencies, response time measurement, performance characterization **Tools**: Python, FastAPI,
-go-wrk, statistical analysis
-
-### Chapter 02: Data Models
-
-Experience the object-relational impedance mismatch and understand when document stores shine by implementing the same
-resume application in both PostgreSQL and MongoDB.
-
-**Key Concepts**: Relational vs document models, schema-on-read vs schema-on-write, data locality, normalization
-trade-offs  
-**Tools**: PostgreSQL, MongoDB, Python, Go, Docker Compose
+- **[Chapter 02: Data Models](./chapter02_data_models/README.md)**: Experience the object-relational impedance mismatch and understand when document, relational, and graph data models shine by implementing the same application in PostgreSQL, MongoDB, and Neo4j.
 
 ## Technology Stack
 
 This learning journey uses a diverse set of technologies to mirror real-world data system architectures:
 
 - **Languages**: Python, Go
-- **Databases**: PostgreSQL, MongoDB, Neo4j (planned)
+- **Databases**: PostgreSQL, MongoDB, Neo4j
 - **Message Systems**: Kafka (planned)
 - **Big Data**: Hadoop, Spark (planned)
 - **Orchestration**: Docker, k3d, Temporal (planned)
