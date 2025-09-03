@@ -1,5 +1,10 @@
 # Designing Data-Intensive Applications - Learning Journey
 
+## 2025-09-03
+- **Chapter 02**: Enhanced database exercises with summarization and aggregation
+  - Updated PostgreSQL and MongoDB exercises to demonstrate data summarization techniques
+  - Expanded README with installation instructions and project setup details
+
 ## 2025-09-02
 - **Project Structure**: Renamed from dayXX to chapterXX structure
 - **Chapter 01**: Added comprehensive README with DDIA context and go-wrk testing instructions
