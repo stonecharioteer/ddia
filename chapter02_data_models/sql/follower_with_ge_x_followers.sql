@@ -26,7 +26,7 @@ LEFT JOIN
 JOIN
   follower_counts fc ON f1.follower_id = fc.user_id
 WHERE
-  -- this is the filter: only include followers who have 12 or more followers themselves
+  -- this is the filter: only include followers who have at least X followers themselves
   fc.num_followers >= 12
 GROUP By
   u.name

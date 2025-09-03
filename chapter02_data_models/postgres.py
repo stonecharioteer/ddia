@@ -137,13 +137,66 @@ def load_data(num_users=5000):
             print("Inserted {} skills to users.".format(len(users_skills_data)))
 
 
+def run_sql_file(filename, **params):
+    """Executes a SQL file from the sql/ directory with optional parameters"""
+    sql_file_path = (
+        pathlib.Path(os.path.realpath(__file__)).parent / "sql" / filename
+    )
+    assert sql_file_path.exists(), f"SQL file doesn't exist at {sql_file_path}"
+    
+    with psycopg.connect(CONN_STRING, row_factory=dict_row) as conn:
+        with conn.cursor() as cursor:
+            with open(sql_file_path, "r") as f:
+                sql_content = f.read()
+            
+            # For followers.sql, replace hardcoded user_id=1 with parameter
+            if filename == 'followers.sql' and 'user_id' in params:
+                user_id = params['user_id']
+                sql_content = sql_content.replace('follower_id = 1', f'follower_id = {user_id}')
+                sql_content = sql_content.replace('user_id != 1', f'user_id != {user_id}')
+                sql_content = sql_content.replace('follower_id = 1', f'follower_id = {user_id}')
+            
+            # For follower_with_ge_x_followers.sql, replace hardcoded threshold
+            if filename == 'follower_with_ge_x_followers.sql' and 'min_followers' in params:
+                min_followers = params['min_followers']
+                sql_content = sql_content.replace('fc.num_followers >= 12', f'fc.num_followers >= {min_followers}')
+                sql_content = sql_content.replace('COUNT(f1.follower_id) > 12', f'COUNT(f1.follower_id) > {min_followers}')
+            
+            print(f"Executing {filename}")
+            if params:
+                print(f"Parameters: {params}")
+            
+            print(f"SQL query being executed:")
+            print("-" * 30)
+            print(sql_content[:200] + "..." if len(sql_content) > 200 else sql_content)
+            print("-" * 30)
+            
+            cursor.execute(sql_content)
+            
+            # Always try to fetch results for any query
+            try:
+                results = cursor.fetchall()
+                print(f"Fetched {len(results)} rows")
+                if results:
+                    print(f"\nResults from {filename}:")
+                    print("-" * 50)
+                    for i, row in enumerate(results, 1):
+                        print(f"{i}. {dict(row)}")
+                    print(f"\nTotal results: {len(results)}")
+                else:
+                    print(f"No results returned from {filename}")
+            except Exception as e:
+                print(f"No results to fetch (this is normal for non-SELECT queries): {e}")
+                conn.commit()
+                print(f"SQL file {filename} executed successfully")
+
+
 def create_schemas():
-    """Creates schemas in the database using `schemas.sql` file"""
+    """Creates schemas in the database using schema.sql file"""
     with psycopg.connect(CONN_STRING, row_factory=dict_row) as conn:
         with conn.cursor() as cursor:
             schema_file_path = (
-                pathlib.Path(os.path.realpath(__file__)).parent
-                / "resume/postgres/schema.sql"
+                pathlib.Path(os.path.realpath(__file__)).parent / "sql/schema.sql"
             )
             assert schema_file_path.exists(), "Schema file doesn't exist at {}".format(
                 schema_file_path
@@ -184,7 +237,8 @@ def add_followers():
             print(f"Inserted {len(follower_data)} follower relationships")
 
 
-def main():
+if __name__ == "__main__":
+    load_dotenv()
     print("Creating schemas in postgres")
     create_schemas()
     print("Populating skills.")
@@ -192,8 +246,3 @@ def main():
     load_data(num_users=5000)
     add_followers()
     print("Done!")
-
-
-if __name__ == "__main__":
-    load_dotenv()
-    main()

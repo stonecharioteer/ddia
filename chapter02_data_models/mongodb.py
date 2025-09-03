@@ -89,6 +89,15 @@ def load_one_resume():
 
 
 def filter_resumes():
+    """Demonstrates various MongoDB query patterns on resume data."""
+    print("🔍 MongoDB Query Demonstration")
+    print("=" * 50)
+    print("This demonstrates different MongoDB query patterns:")
+    print("- Simple field matching")
+    print("- Array operators ($all, $in)")  
+    print("- Nested document queries")
+    print("- Element matching ($elemMatch)")
+    print()
 
     # --- 1. Define all queries and their descriptions in a data structure ---
     # This makes the code data-driven and easy to extend.
@@ -121,20 +130,42 @@ def filter_resumes():
     with MongoClient("mongodb://localhost:27017") as client:
         db = client["ddia"]
         resumes_collection = db["resumes"]
+        
+        total_resumes = resumes_collection.count_documents({})
+        print(f"📊 Total resumes in database: {total_resumes:_}")
+        print()
+        
         for i, q in enumerate(QUERIES):
             description = q["description"]
             query = q["query"]
-            print(f"\n--- Query {i+1}: {description} ---")
+            print(f"🔎 Query {i+1}: {description}")
+            print("─" * 40)
             count = resumes_collection.count_documents(query)
-            print(f"Found {count} resumes for query: ")
+            percentage = (count / total_resumes * 100) if total_resumes > 0 else 0
+            print(f"📈 Results: {count:_} resumes ({percentage:.1f}% of total)")
+            print("🔧 Query:")
             pprint.pprint(query)
+            print()
 
 
 def summary():
-    """Summarizes the skills against the number of users that have them."""
+    """Demonstrates MongoDB aggregation pipeline by counting skills."""
+    print("📊 MongoDB Aggregation Pipeline Demonstration")
+    print("=" * 55)
+    print("This demonstrates the modern MongoDB aggregation framework:")
+    print("- $unwind: Deconstructs arrays into separate documents")
+    print("- $group: Groups documents and performs aggregations")
+    print("- $sort: Orders the results")
+    print()
+    
     with MongoClient("mongodb://localhost:27017") as client:
         db = client["ddia"]
         resumes_collection = db["resumes"]
+        
+        total_resumes = resumes_collection.count_documents({})
+        print(f"📋 Total resumes to analyze: {total_resumes:_}")
+        print()
+        
         # This is the aggregation pipeline, defined as a list of stages.
         pipeline = [
             {
@@ -158,19 +189,36 @@ def summary():
                 "$sort": {"_id": 1}
             }
         ]
-        print("Executing the aggregation pipeline")
+        print("🔧 Aggregation Pipeline:")
         pprint.pprint(pipeline)
-        print("-"*30)
-        results = resumes_collection.aggregate(pipeline)
-        print("Skill counts:")
-        for doc in results:
-            pprint.pprint(doc)
+        print()
+        
+        print("⚡ Executing pipeline...")
+        results = list(resumes_collection.aggregate(pipeline))
+        
+        print(f"📈 Results: Found {len(results):_} unique skills")
+        print("─" * 40)
+        for i, doc in enumerate(results, 1):
+            skill = doc['_id']
+            count = doc['count']
+            percentage = (count / total_resumes * 100) if total_resumes > 0 else 0
+            print(f"{i:2}. {skill:20} → {count:_} users ({percentage:4.1f}%)")
+        print()
 
 def summary_mapreduce():
     """
-    Connects to MongoDB and runs a MapReduce job to count skills.
+    Demonstrates legacy MongoDB MapReduce by counting skills.
     Note: This is a legacy feature, replaced by the Aggregation Pipeline.
     """
+    print("🗂️  MongoDB MapReduce Demonstration (Legacy)")
+    print("=" * 50)
+    print("This demonstrates the old MapReduce framework:")
+    print("⚠️  WARNING: MapReduce is deprecated and slower than aggregation")
+    print("- Map: JavaScript function that processes each document")
+    print("- Reduce: JavaScript function that combines map outputs")
+    print("- Output: Stored in a temporary collection")
+    print()
+    
     with MongoClient("mongodb://localhost:27017") as client:
         db = client["ddia"]
         resumes_collection = db["resumes"]
@@ -204,8 +252,20 @@ def summary_mapreduce():
             }
         """)
 
-        print("Executing MapReduce job...")
-        print("-" * 30)
+        total_resumes = resumes_collection.count_documents({})
+        print(f"📋 Total resumes to analyze: {total_resumes:_}")
+        print()
+        
+        print("🔧 Map Function (JavaScript):")
+        print(mapper.code[:200] + "..." if len(mapper.code) > 200 else mapper.code)
+        print()
+        
+        print("🔧 Reduce Function (JavaScript):")
+        print(reducer.code[:150] + "..." if len(reducer.code) > 150 else reducer.code)  
+        print()
+        
+        print("⚡ Executing MapReduce job...")
+        print("─" * 30)
 
         # --- 3. Execute the MapReduce Job ---
         # Note: MapReduce was deprecated in MongoDB 4.4 and removed in PyMongo 4.x
@@ -216,17 +276,58 @@ def summary_mapreduce():
                               reduce=reducer, 
                               out="skill_counts")
             
-            print("MapReduce job completed successfully")
-            print("Skill Counts (from MapReduce output collection):")
+            print("✅ MapReduce job completed successfully")
+            print()
+            
             # Query the output collection to see the final results
             skill_counts_collection = db["skill_counts"]
-            for doc in skill_counts_collection.find().sort("_id"):
-                # The result format is {'_id': skill_name, 'value': count}
-                pprint.pprint(doc)
+            results = list(skill_counts_collection.find().sort("_id"))
+            
+            print(f"📈 Results: Found {len(results):_} unique skills")
+            print("─" * 40)
+            for i, doc in enumerate(results, 1):
+                skill = doc['_id']
+                count = int(doc['value'])
+                percentage = (count / total_resumes * 100) if total_resumes > 0 else 0
+                print(f"{i:2}. {skill:20} → {count:_} users ({percentage:4.1f}%)")
+            print()
                 
         except Exception as e:
-            print(f"MapReduce failed (likely deprecated): {e}")
-            print("This demonstrates why MapReduce was replaced by aggregation pipelines!")
+            print(f"❌ MapReduce failed (likely deprecated): {e}")
+            print("💡 This demonstrates why MapReduce was replaced by aggregation pipelines!")
+            print("   Modern MongoDB versions recommend using aggregation instead.")
+
+def purge_data():
+    """Purge all data from MongoDB collections."""
+    print("🗑️  MongoDB Data Purge")
+    print("=" * 30)
+    
+    with MongoClient("mongodb://localhost:27017") as client:
+        db = client["ddia"]
+        
+        # Get collection names
+        collections = db.list_collection_names()
+        
+        if not collections:
+            print("📝 No collections found in database 'ddia'")
+            return
+        
+        print(f"📊 Found {len(collections):_} collections: {', '.join(collections)}")
+        
+        total_deleted = 0
+        for collection_name in collections:
+            collection = db[collection_name]
+            count_before = collection.count_documents({})
+            
+            if count_before > 0:
+                result = collection.delete_many({})
+                print(f"🗑️  Deleted {result.deleted_count:_} documents from '{collection_name}'")
+                total_deleted += result.deleted_count
+            else:
+                print(f"📝 Collection '{collection_name}' was already empty")
+        
+        print(f"✅ Purge completed. Total documents deleted: {total_deleted:_}")
+
 
 if __name__ == "__main__":
     total = 50

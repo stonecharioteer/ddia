@@ -1,6 +1,7 @@
 [project]
 name = "day02_data_models"
 version = "0.1.0"
+requires-python = ">=3.13"
 dependencies = [
     "mimesis>=18.0.0",
     "neo4j>=5.28.2",
@@ -8,6 +9,7 @@ dependencies = [
     "psycopg[binary]>=3.2.9",
     "pymongo>=4.14.1",
     "python-dotenv>=1.1.1",
+    "tqdm>=4.67.1",
 ]
 
 [dependency-groups]

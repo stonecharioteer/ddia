@@ -3,13 +3,14 @@ from neo4j import GraphDatabase
 URI = "bolt://localhost:7687" 
 AUTH = ("neo4j", "password")
 
-def create_first_user(driver):
+def create_first_user(driver, name="Alice"):
     """Creates a single user node in the database"""
     with driver.session() as session:
         # A session.write_transaction() automatically handles commits and rollbacks.
         # This is the standard way to execute write queries.
-        result = session.write_transaction(create_user_node, "Alice")
+        result = session.write_transaction(create_user_node, name)
         print(f"Created user: {result}")
+        return result
 
 def create_user_node(tx, name):
     """This function is executed by the transaction.
@@ -20,13 +21,9 @@ def create_user_node(tx, name):
     return result.single()[0]
 
 
-def main():
+if __name__ == "__main__":
     # the driver object is thread-safe and manages your connection pool
     with GraphDatabase.driver(URI, auth=AUTH) as driver:
         driver.verify_connectivity()
         print("Connection successful")
         create_first_user(driver)
-
-
-if __name__ == "__main__":
-    main()
