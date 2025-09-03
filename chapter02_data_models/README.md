@@ -102,3 +102,53 @@ the following questions:
   description of the problem?
 - Based on this experience, for what kinds of applications or features would a graph database be a more natural fit than
   a relational one?
+
+
+## Getting Started
+
+1. **Prerequisites**: Docker, Python 3.13+, Go (via mise)
+2. **Start Services**: `docker compose up -d`
+3. **Install Dependencies**: `uv sync`
+4. **Run Scripts**: Follow the instructions in each exercise section.
+
+## CLI Tool (`script.py`)
+
+This chapter includes a command-line interface (CLI) tool to orchestrate the database operations for all three data models. You can run it using `uv run python script.py --help`.
+
+### PostgreSQL Commands
+
+Use `uv run python script.py postgres --help` to see the full list of commands.
+
+- `create-schemas`: Creates the necessary tables in PostgreSQL.
+- `populate-data`: Populates the database with a specified number of users and their skills.
+- `count-skills`: Counts the number of users who have each skill.
+- `suggest-follows`: Suggests users to follow based on a "friends of friends" analysis.
+- `list-influential-followers`: Lists users who have influential followers.
+
+### MongoDB Commands
+
+Use `uv run python script.py mongo --help` to see the full list of commands.
+
+- `populate-data`: Generates and inserts a specified number of fake resumes into MongoDB.
+- `query-resumes`: Demonstrates various queries on the resume data.
+- `count-skills`: Counts skills using the aggregation pipeline.
+- `count-skills-mapreduce`: Counts skills using the legacy MapReduce framework.
+- `purge-data`: Clears all data from the MongoDB collections.
+
+### Neo4j Commands
+
+Use `uv run python script.py neo4j --help` to see the full list of commands.
+
+- `create-user`: Creates a single user node.
+- `create-social-graph`: Creates a social graph with a specified number of users.
+- `get-followers-of-random-user`: Queries for the followers of a random user.
+- `get-influential-followers`: Queries for influential followers.
+- `get-friends-of-friends`: Queries for "friends of friends".
+
+## What You'll Learn
+
+- The "object-relational impedance mismatch" in practice
+- How data locality in document models can simplify application code
+- The trade-offs between schema-on-write (relational) and schema-on-read (document)
+- How to choose the right data model for the job
+
