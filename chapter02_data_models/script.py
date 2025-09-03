@@ -8,7 +8,7 @@ import click
 from tqdm import tqdm
 from postgres import create_schemas, populate_initial_skills, load_data, add_followers, run_sql_file
 from mongodb import load_one_resume, filter_resumes, summary, summary_mapreduce, purge_data
-from neo4j_social import create_first_user, GraphDatabase
+from neo4j_social import create_first_user, GraphDatabase, create_social_graph
 
 
 @click.group()
@@ -230,6 +230,18 @@ def neo4j_create_user(name):
         click.echo(f"✗ Error creating user: {e}", err=True)
         raise click.Abort()
 
+
+@neo4j.command('create-social-graph')
+@click.help_option("-h", "--help")
+def neo4j_create_social_graph():
+    try:
+        with GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "password")) as driver:
+            driver.verify_connectivity()
+            create_social_graph(driver)
+            click.echo("✓ Created Social graph")
+    except Exception as e:
+        click.echo(f"✗ Error creating user: {e}", err=True)
+        raise click.Abort()
 
 if __name__ == '__main__':
     cli()
