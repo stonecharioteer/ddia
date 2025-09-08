@@ -16,13 +16,10 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "chapter03",
 	Short: "CLI to help with Chapter 03 of DDIA",
-	Long: `Learning Chapter 03 Storage and Retrieval of
-	Designing Data Intensive Applications by Martin Kleppmann
-	by writing Code. This CLI contains commands to interface with
-	a db, mimicking the db_set and db_get commands that 
-	were shown in Bash.
-
-	This uses go, for practice.`,
+	Long: `
+Learning Chapter 03 Storage and Retrieval of the book
+'Designing Data Intensive Applications' by Martin Kleppmann
+by writing code.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
