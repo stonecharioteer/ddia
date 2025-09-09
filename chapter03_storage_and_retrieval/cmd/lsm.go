@@ -1,4 +1,5 @@
 package cmd
+
 import (
 	"fmt"
 	"os"
@@ -8,61 +9,75 @@ import (
 
 var globalLSM *LSMTree
 
-
 var lsmCmd = &cobra.Command{
-	Use: "lsm",
+	Use:   "lsm",
 	Short: "Command to interface with the lsm database",
 	Long: `
 A golang implementation of an SSTable + LSMTree
 to demonstrate how they can be faster.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		sstablePrefix, _ := cmd.Flags().GetString("sstable-file-prefix")
-		fmt.Printf("Using SSTable Prefix path: %s\n", sstablePrefix)
-	},
-}
-
-var lsmDbSetCmd = &cobra.Command{
-	Use: "set [key] value",
-	Args: cobra.ExactArgs(2),
-	Short: "Sets a key value pair in the database (LSM)",
-	Long: `Sets a key value pair in the database file
-	using SSTables and LSMTrees`,
-	Run: func(cmd *cobra.Command, args []string) {
-		sstablePrefix, _ := cmd.Flags().GetString("sstable-file-prefix")
-		fmt.Printf("Called lsm set %s %s on %s.", args[0], args[1], sstablePrefix)
-		err := globalLSM.Set(args[0], args[1], sstablePrefix)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			return
-		}
 		return
 	},
 }
 
+var lsmDbSetCmd = &cobra.Command{
+	Use:   "set [key] value",
+	Args:  cobra.ExactArgs(2),
+	Short: "Sets a key value pair in the database (LSM)",
+	Long: `Sets a key value pair in the database file
+	using SSTables and LSMTrees`,
+	Run: func(cmd *cobra.Command, args []string) {
+		host, _ := cmd.Flags().GetString("host")
+		port, _ := cmd.Flags().GetString("port")
+		serverURL := fmt.Sprintf("http://%s:%s", host, port)
+
+		err := makeHTTPSetRequest(serverURL, args[0], args[1])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			return
+		}
+		fmt.Printf("Set %s=%s\n", args[0], args[1])
+	},
+}
+
 var lsmDbGetCmd = &cobra.Command{
-	Use: "get [key]",
-	Args: cobra.ExactArgs(1),
+	Use:   "get [key]",
+	Args:  cobra.ExactArgs(1),
 	Short: "Gets a key from the database (LSM)",
 	Long: `Gets a key from the database file,
 	uses SSTables and LSMTrees.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		sstablePrefix, _ := cmd.Flags().GetString("sstable-file-prefix")
-		fmt.Printf("Called lsm get %s on %s.", args[0], sstablePrefix)
-		value, err := globalLSM.Get(args[0], sstablePrefix)
+		host, _ := cmd.Flags().GetString("host")
+		port, _ := cmd.Flags().GetString("port")
+		serverURL := fmt.Sprintf("http://%s:%s", host, port)
+		value, err := makeHTTPGetRequest(serverURL, args[0])
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			return
 		}
 		fmt.Printf("%s=%s", args[0], value)
-		return
+	},
+}
+
+var lsmServeCmd = &cobra.Command{
+	Use:   "serve",
+	Short: "Start the LSM-Tree HTTP Server",
+	Long:  `Starts an HTTP Server with an in-memory LSM-Tree`,
+	Run: func(cmd *cobra.Command, args []string) {
+		port, _ := cmd.Flags().GetString("port")
+		sstablePrefix, _ := cmd.Flags().GetString("sstable-prefix")
+		fmt.Printf("Starting LSMTree server on port %s...\n", port)
+		startLSMServer(port, sstablePrefix)
 	},
 }
 
 func init() {
-	globalLSM = NewLSMTree(1000) // Flush after 1000 entries
 	lsmCmd.AddCommand(lsmDbSetCmd)
 	lsmCmd.AddCommand(lsmDbGetCmd)
+	lsmCmd.AddCommand(lsmServeCmd)
 	rootCmd.AddCommand(lsmCmd)
-	lsmCmd.PersistentFlags().StringP("sstable-file-prefix", "P", "./sstables/sstable", "Path to the SST+LSMT Database log directory")
+	lsmServeCmd.PersistentFlags().StringP("sstable-prefix", "P", "sstable", "Path to the SST+LSMT Database log directory")
+	// client flags (for set/get commands)
+	lsmCmd.PersistentFlags().StringP("host", "H", "localhost", "LSM server host")
+	lsmCmd.PersistentFlags().StringP("port", "p", "8080", "LSM server port")
 }
-

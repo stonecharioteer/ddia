@@ -1,11 +1,14 @@
 package cmd
+
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
-	"path/filepath"
-	"sort"
 	"strings"
+	"sync"
 )
 
 func dbSet(databaseFile, key, value string) error {
@@ -44,7 +47,7 @@ func dbGet(databaseFile, key string) (string, error) {
 		}
 	}
 
-	if err:= scanner.Err(); err != nil {
+	if err := scanner.Err(); err != nil {
 		return "", fmt.Errorf("error reading file: %w", err)
 	}
 
@@ -54,150 +57,352 @@ func dbGet(databaseFile, key string) (string, error) {
 	return lastValue, nil
 }
 
-
-type MemTable map[string]string
-
-type LSMTree struct {
-	memTable MemTable
-	sstables []string // path to the SSTable files
-	memTableSize int // current size
-	maxMemTableSize int // Flush threshold
+type LSMServer struct {
+	lsmTree *LSMTree
+	mutex   sync.RWMutex // For thread safety
 }
 
-// constructor
-func NewLSMTree(maxMemTableSize int) *LSMTree {
-	return &LSMTree{
-		memTable: make(MemTable),
-		sstables: []string{},
-		memTableSize: 0,
-		maxMemTableSize: maxMemTableSize,
+func startLSMServer(port, sstablePrefix string) {
+	server := &LSMServer{
+		lsmTree: NewLSMTree(1000, sstablePrefix),
 	}
+
+	http.HandleFunc("/set", server.handleSet)
+	http.HandleFunc("/get", server.handleGet)
+
+	fmt.Printf("LSM Server listening on port: %s\n", port)
+	http.ListenAndServe(":"+port, nil)
 }
 
-// simple set - just add to memory for now
-func (lsm *LSMTree) Set(key, value, sstablePrefix string) error {
-	lsm.memTable[key] = value
-	lsm.memTableSize++
-	// generate next numbered sstable file
-	filename, err := lsm.generateNextSSTablePath(sstablePrefix)
+func (s *LSMServer) handleSet(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		fmt.Printf("SET Request failed - invalid JSON: %v\n", err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Validate both key and value are provided
+	if req.Key == "" {
+		fmt.Printf("SET request failed - Missing key field\n")
+		http.Error(w, "Missing key field", http.StatusBadRequest)
+		return
+	}
+	if req.Value == "" {
+		fmt.Printf("SET request failed - Missing value field\n")
+		http.Error(w, "Missing value field", http.StatusBadRequest)
+		return
+	}
+
+	fmt.Printf("SET request: key=%s value=%s\n", req.Key, req.Value)
+
+	s.mutex.Lock()
+	err := s.lsmTree.Set(req.Key, req.Value)
+	s.mutex.Unlock()
 	if err != nil {
-		return err
+		fmt.Printf("SET failed: %v\n", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
 	}
-	return lsm.flushToSSTable(filename)
+
+	fmt.Printf("SET success: key=%s stored\n", req.Key)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
-func (lsm *LSMTree) Get(key, sstablePrefix string) (string, error) {
-	// Check Memtable first (will be empty since we flush immediately)
-	if value, exists := lsm.memTable[key]; exists {
-		return value, nil
-	}
-	// search through SSTables (newest first)
-	sstableFiles, err := lsm.findSSTableFiles(sstablePrefix)
-	if err != nil {
-		return "", err
+func (s *LSMServer) handleGet(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
 
-	for _, filename := range sstableFiles {
-		value, err := lsm.getFromSSTable(filename, key)
-		if err == nil {
-			return value, nil
-		}
+	key := r.URL.Query().Get("key")
+	if key == "" {
+		fmt.Printf("GET request failed - Missing key parameter\n")
+		http.Error(w, "Missing key parameter", http.StatusBadRequest)
+		return
 	}
-	return "", fmt.Errorf("key not found")
+
+	fmt.Printf("GET request: key=%s\n", key)
+	s.mutex.RLock()
+	value, exists := s.lsmTree.Get(key)
+	s.mutex.RUnlock()
+
+	if !exists {
+		fmt.Printf("GET failed: key=%s not found\n", key)
+		http.Error(w, "Key not found", http.StatusNotFound)
+		return
+	}
+
+	fmt.Printf("GET successs: key=%s, value=%s\n", key, value)
+	json.NewEncoder(w).Encode(map[string]string{"value": value})
 }
 
-func (lsm *LSMTree) flushToSSTable(filename string) error {
-	if lsm.memTableSize == 0 {
-		return nil // nothing to flush
+func makeHTTPSetRequest(serverURL, key, value string) error {
+	reqBody := map[string]string{
+		"key":   key,
+		"value": value,
 	}
-	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+
+	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return fmt.Errorf("error creating SSTable: %w", err)
+		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
-	defer file.Close()
 
-	// Write sorted key-value pairs
-	for key, value := range lsm.memTable {
-		_, err = fmt.Fprintf(file, "%s,%s\n", key, value)
-		if err != nil {
-			return fmt.Errorf("error writing to SSTable: %w", err)
-		}
-
+	resp, err := http.Post(serverURL+"/set", "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
 	}
-	// Clear memtable and add SSTable to list
-	lsm.memTable = make(MemTable)
-	lsm.memTableSize = 0
-	lsm.sstables = append(lsm.sstables, filename)
+
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("server error: %s", resp.Status)
+	}
 	return nil
 }
 
-func (lsm *LSMTree) getFromSSTable(filename, key string) (string, error) {
+func makeHTTPGetRequest(serverURL, key string) (string, error) {
+	resp, err := http.Get(fmt.Sprintf("%s/get?key=%s", serverURL, key))
+	if err != nil {
+		return "", fmt.Errorf("failed to make request: %w", err)
+	}
+
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return "", fmt.Errorf("key not found")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("server error: %s", resp.Status)
+	}
+
+	var result map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return result["value"], nil
+}
+
+// Sorted Entry for Memtable
+type Entry struct {
+	Key   string
+	Value string
+}
+
+// sorted memtable (slice kept sorted by key)
+type SortedMemTable struct {
+	entries []Entry
+	size    int
+}
+
+// SS Table represents an immutable, sorted table
+type SSTable struct {
+	id      int     // unique identifier
+	entries []Entry // sorted entries
+	level   int     // which level this sstable belongs to
+}
+
+// true LSM-Tree structure
+type LSMTree struct {
+	memTable        *SortedMemTable
+	sstables        map[int]*SSTable // Map of SSTable ID -> SSTable
+	nextSSTableID   int
+	maxMemTableSize int
+	levels          [][]int // levels[i] = slice of SSTable IDs at level i
+	sstablePrefix   string
+}
+
+func NewLSMTree(maxMemTableSize int, sstablePrefix string) *LSMTree {
+	return &LSMTree{
+		memTable: &SortedMemTable{
+			entries: make([]Entry, 0),
+			size:    0,
+		},
+		sstables:        make(map[int]*SSTable),
+		nextSSTableID:   1,
+		maxMemTableSize: maxMemTableSize,
+		levels:          make([][]int, 10), // Support up to 10 levels
+		sstablePrefix:   sstablePrefix,
+	}
+}
+
+// Helper: Insert into sorted memtable
+func (mt *SortedMemTable) insert(key, value string) {
+	// Binary search for insertion point
+	left, right := 0, len(mt.entries)
+	for left < right {
+		mid := (left + right) / 2
+		if mt.entries[mid].Key < key {
+			left = mid + 1
+		} else {
+			right = mid
+		}
+	}
+	// Check if key already exists
+	if left < len(mt.entries) && mt.entries[left].Key == key {
+		mt.entries[left].Value = value // Update existing
+	} else {
+		// Insert new entry
+		entry := Entry{Key: key, Value: value}
+		mt.entries = append(mt.entries[:left], append([]Entry{entry}, mt.entries[left:]...)...)
+		mt.size++
+	}
+}
+
+func (mt *SortedMemTable) get(key string) (string, bool) {
+	// Binary search
+	left, right := 0, len(mt.entries)
+	for left < right {
+		mid := (left + right) / 2
+		if mt.entries[mid].Key < key {
+			left = mid + 1
+		} else {
+			right = mid
+		}
+	}
+
+	if left < len(mt.entries) && mt.entries[left].Key == key {
+		return mt.entries[left].Value, true
+	}
+	return "", false
+}
+
+func (lsm *LSMTree) flushMemTable() error {
+	if lsm.memTable.size == 0 {
+		return nil
+	}
+
+	// create the directory if needed
+	if err := os.MkdirAll(lsm.sstablePrefix, 0755); err != nil {
+		return fmt.Errorf("failed to create sst directory: %w", err)
+	}
+	// use prefix for filename
+	filename := fmt.Sprintf("%s/%s-%04d.sst", lsm.sstablePrefix, lsm.sstablePrefix, lsm.nextSSTableID)
+
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("failed to create SSTable: %w", err)
+	}
+	defer file.Close()
+
+	// Write sorted entries to file
+	for _, entry := range lsm.memTable.entries {
+		_, err := fmt.Fprintf(file, "%s,%s\n", entry.Key, entry.Value)
+		if err != nil {
+			return fmt.Errorf("failed to write entry: %w", err)
+		}
+	}
+	fmt.Printf("Flushed memtable to file: %s\n", filename)
+	// clear memtable
+	lsm.memTable.entries = make([]Entry, 0)
+	lsm.memTable.size = 0
+	lsm.nextSSTableID++
+	return nil
+}
+
+// LSM-Tree Set method with flushing
+func (lsm *LSMTree) Set(key, value string) error {
+	// Insert into memtable
+	lsm.memTable.insert(key, value)
+	// Check if we need to flush
+	if lsm.memTable.size >= lsm.maxMemTableSize {
+		err := lsm.flushMemTable()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// LSM-Tree Get method (checks memtable first, then SSTables)
+func (lsm *LSMTree) Get(key string) (string, bool) {
+	// Check memtable first
+	if value, found := lsm.memTable.get(key); found {
+		return value, true
+	}
+	// Check sstable files
+	files := lsm.findSSTableFiles()
+	for _, filename := range files {
+		if value, found := lsm.searchSSTableFile(filename, key); found {
+			return value, true
+		}
+	}
+	return "", false
+}
+
+// Search for a key in a specific SSTableFile
+func (lsm *LSMTree) searchSSTableFile(filename, key string) (string, bool) {
 	file, err := os.Open(filename)
 	if err != nil {
-		return "", fmt.Errorf("error reading SSTable file: %w", err)
+		return "", false // file can't be found or doesn't exist
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	var lastValue string
-	found := false
-
+	lineCount := 0
 	for scanner.Scan() {
+		lineCount++
+	}
+
+	if lineCount == 0 {
+		return "", false
+	}
+
+	// Binary search on line numbers
+	left, right := 0, lineCount-1
+	for left <= right {
+		mid := (left + right) / 2
+		// Seek back to the beginning and read to line 'mid'
+		file.Seek(0, 0)
+		scanner := bufio.NewScanner(file)
+		// Skip to the mid line
+		for i := 0; i < mid; i++ {
+			scanner.Scan()
+		}
+
+		// Read the target line
+		if !scanner.Scan() {
+			break
+		}
 		line := scanner.Text()
 		parts := strings.SplitN(line, ",", 2)
-		if len(parts) == 2 && parts[0] == key {
-			lastValue = parts[1]
-			found = true
+		if len(parts) != 2 {
+			break
 		}
-	}
+		lineKey := parts[0]
+		if lineKey < key {
+			left = mid + 1
+		} else if lineKey > key {
+			right = mid - 1
+		} else {
+			// found it
+			return parts[1], true
+		}
 
-	if !found { 
-		return "", fmt.Errorf("key not found")
 	}
-	return lastValue, nil
-
+	return "", false
 }
 
-func (lsm *LSMTree) generateNextSSTablePath(prefix string) (string, error) {
-	// create directory if it doesn't exist
-	dir := filepath.Dir(prefix)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	// find the next number by checking existing files
-	counter := 1
-	for {
-		filename := fmt.Sprintf("%s-%04d.txt", prefix, counter)
-		if _, err := os.Stat(filename); os.IsNotExist(err) {
-			return filename, nil
-		}
-		counter++
-	}
-
-}
-
-func (lsm *LSMTree) findSSTableFiles(prefix string) ([]string, error) {
-	dir := filepath.Dir(prefix)
-	baseName := filepath.Base(prefix)
-
-	files, err := os.ReadDir(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return []string{}, nil // Directory doesn't exist yet
-		}
-		return nil, fmt.Errorf("error reading directory: %w", err)
-	}
-
-	var sstableFiles []string
-	for _, file := range files {
-		if strings.HasPrefix(file.Name(), baseName+"-") && strings.HasSuffix(file.Name(), ".txt") {
-			sstableFiles = append(sstableFiles, filepath.Join(dir, file.Name()))
+func (lsm *LSMTree) findSSTableFiles() []string {
+	var files []string
+	for i := 1; i < lsm.nextSSTableID; i++ {
+		filename := fmt.Sprintf("%s/%s-%04d.sst", lsm.sstablePrefix, lsm.sstablePrefix, i)
+		if _, err := os.Stat(filename); err == nil {
+			files = append(files, filename)
 		}
 	}
-
-	sort.Slice(sstableFiles, func(i, j int) bool {
-		return sstableFiles[i] > sstableFiles[j]
-	})
-	return sstableFiles, nil
+	// return in reverse order, newest files first, remember?
+	for i, j := 0, len(files)-1; i < j; i, j = i+1, j-1 {
+		files[i], files[j] = files[j], files[i]
+	}
+	return files
 }
