@@ -219,10 +219,12 @@ type LSMTree struct {
 	maxMemTableSize int
 	levels          [][]int // levels[i] = slice of SSTable IDs at level i
 	sstablePrefix   string
+	walPath         string
 }
 
 func NewLSMTree(maxMemTableSize int, sstablePrefix string) *LSMTree {
-	return &LSMTree{
+	walPath := fmt.Sprintf("%s/wal.log", sstablePrefix)
+	lsm := &LSMTree{
 		memTable: &SortedMemTable{
 			entries: make([]Entry, 0),
 			size:    0,
@@ -232,7 +234,25 @@ func NewLSMTree(maxMemTableSize int, sstablePrefix string) *LSMTree {
 		maxMemTableSize: maxMemTableSize,
 		levels:          make([][]int, 10), // Support up to 10 levels
 		sstablePrefix:   sstablePrefix,
+		walPath:         walPath, // WAL is stored in the same directory
 	}
+	// replay WAL on startup to recover memtable
+	lsm.replayWAL()
+	return lsm
+}
+
+func (lsm *LSMTree) writeToWAL(key, value string) error {
+	file, err := os.OpenFile(lsm.walPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open WAL: %w", err)
+	}
+	defer file.Close()
+
+	_, err = fmt.Fprintf(file, "%s,%s\n", key, value)
+	if err != nil {
+		return fmt.Errorf("failed to write to WAL: %w", err)
+	}
+	return nil
 }
 
 // Helper: Insert into sorted memtable
@@ -306,11 +326,20 @@ func (lsm *LSMTree) flushMemTable() error {
 	lsm.memTable.entries = make([]Entry, 0)
 	lsm.memTable.size = 0
 	lsm.nextSSTableID++
+	// NOTE: Clear WAL after successful flush
+	if err := lsm.clearWAL(); err != nil {
+		fmt.Printf("Warning: failed to clear WAL: %v\n", err)
+		// NOTE: We do not return an error here, the flush was successful.
+	}
 	return nil
 }
 
 // LSM-Tree Set method with flushing
 func (lsm *LSMTree) Set(key, value string) error {
+	// Write to WAL first (durability)
+	if err := lsm.writeToWAL(key, value); err != nil {
+		return err
+	}
 	// Insert into memtable
 	lsm.memTable.insert(key, value)
 	// Check if we need to flush
@@ -405,4 +434,31 @@ func (lsm *LSMTree) findSSTableFiles() []string {
 		files[i], files[j] = files[j], files[i]
 	}
 	return files
+}
+
+func (lsm *LSMTree) replayWAL() {
+	file, err := os.Open(lsm.walPath)
+	if err != nil {
+		// WAL doesn't exist yet, first startup
+		return
+	}
+	defer file.Close()
+	fmt.Printf("Replaying WAL from %s...\n", lsm.walPath)
+	scanner := bufio.NewScanner(file)
+	count := 0
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.SplitN(line, ",", 2)
+		if len(parts) == 2 {
+			lsm.memTable.insert(parts[0], parts[1])
+			count++
+		}
+	}
+	if count > 0 {
+		fmt.Printf("Recovered %d entries from WAL\n", count)
+	}
+}
+
+func (lsm *LSMTree) clearWAL() error {
+	return os.Truncate(lsm.walPath, 0)
 }
