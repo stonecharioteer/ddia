@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -62,9 +63,9 @@ type LSMServer struct {
 	mutex   sync.RWMutex // For thread safety
 }
 
-func startLSMServer(port, sstablePrefix string) {
+func startLSMServer(port, sstablePrefix string, maxMemTableSize int) {
 	server := &LSMServer{
-		lsmTree: NewLSMTree(1000, sstablePrefix),
+		lsmTree: NewLSMTree(maxMemTableSize, sstablePrefix),
 	}
 
 	http.HandleFunc("/set", server.handleSet)
@@ -242,6 +243,12 @@ func NewLSMTree(maxMemTableSize int, sstablePrefix string) *LSMTree {
 }
 
 func (lsm *LSMTree) writeToWAL(key, value string) error {
+	// create the directory if needed
+	dir := filepath.Dir(lsm.walPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create wal directory: %w", err)
+	}
+
 	file, err := os.OpenFile(lsm.walPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open WAL: %w", err)

@@ -66,8 +66,9 @@ var lsmServeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		port, _ := cmd.Flags().GetString("port")
 		sstablePrefix, _ := cmd.Flags().GetString("sstable-prefix")
+		maxMemTableSize, _ := cmd.Flags().GetInt("max-memtable-size")
 		fmt.Printf("Starting LSMTree server on port %s...\n", port)
-		startLSMServer(port, sstablePrefix)
+		startLSMServer(port, sstablePrefix, maxMemTableSize)
 	},
 }
 
@@ -77,6 +78,7 @@ func init() {
 	lsmCmd.AddCommand(lsmServeCmd)
 	rootCmd.AddCommand(lsmCmd)
 	lsmServeCmd.PersistentFlags().StringP("sstable-prefix", "P", "sstable", "Path to the SST+LSMT Database log directory")
+	lsmServeCmd.PersistentFlags().IntP("max-memtable-size", "m", 1000, "Maximum entries in the memtable before flush.")
 	// client flags (for set/get commands)
 	lsmCmd.PersistentFlags().StringP("host", "H", "localhost", "LSM server host")
 	lsmCmd.PersistentFlags().StringP("port", "p", "8080", "LSM server port")
